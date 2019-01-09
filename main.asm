@@ -4,6 +4,9 @@ outfn:	.asciiz "result.bmp"
 imgInf:	.word 32, 32, pImg, 0, 0, 0
 handle: .word 0
 fsize:	.word 0
+pSize:	.word 	458760
+ptrn:	.word 	0x40, 0x3d, 0x3d, 0x3d, 0x41, 0x7d, 0x7d, 0x43
+output: .word 	0:32
 # to avoid memory allocation image buffer is defined
 # big enough to store 512x512 black&white image
 # note that we know exactly the size of the header
@@ -14,6 +17,7 @@ fsize:	.word 0
 pFile:		.space 62
 pImg:		.space 36000
 patternMask:	.word	0
+stack:		.space	100
 
 	.text
 .macro	push(%val)
@@ -24,6 +28,7 @@ main:
 	# open input file for reading
 	# the file has to be in current working directory
 	# (as recognized by mars simulator)
+	la $sp, stack
 	la $a0, fname
 	li $a1, 0
 	li $a2, 0
@@ -50,8 +55,11 @@ main:
 # instead of project implementation
 # just set 8 pixels in row 0 and columns in range 0..7
 
-	la $a0, pImg
-	sb $zero, ($a0)
+	la 	$a0, imgInf
+	lw 	$a1, pSize
+	la 	$a2, ptrn
+		la 	$a3, output
+	jal	findPatterns
 
 ######################################
 
@@ -104,9 +112,18 @@ checkPattern:
 		xor	$v0, $t1, $a1		#xor with the pattern
 		jr	$ra		
 		
-#(int size, int* pattern, int* points, int* pointsCount)
+# 	$a0 = pImg
+#	$a1 = pSize
+#	$a2 = ptrn
+#	$a3 = output
+
 findPatterns:
-		move	$s0, $a0
+		move	$fp, $sp
+		push($a0)
+		push($a1)
+		push($a2)
+		push($a3)
+		move	$s0, $a1
 		andi	$s0, $s0, 0xFFFF	#pattern height
 		move	$t0, $a0
 		andi	$t0, $t0, 0xFFFF0000	#pattern widith
@@ -184,12 +201,13 @@ patternNotFound:			#advance
 		
 		addiu	$s1, $s1, 3
 		lw	$t0, imgInf
-		divu	$t0, 8
-		subu	$t0, 3
+		srl	$t0,$t0, 3
+		subiu	$t0,$t0, 3
 		blt	$s1,$t0, mainLoopBegin
 		li	$s1, 0
-		addiu	$s2, 1
-		lw	$t0, imgInfo+4
+		addiu	$s2, $s2, 1
+		la	$t0, ($fp)
+		lw	$t0, 4($t0)
 		blt	$t0,$s2, end
 		j	mainLoopBegin
 end:		
