@@ -113,7 +113,7 @@ and $t3,$t1,$t2     # byte 0 and 2 valid
 ror $t1,$v0,8       
 not $t2,$t2        # $t2 contains mask 0xFF00FF00
 and $t1,$t1,$t2     # byte 1 and 3 valid
-or $v1,$t3,$t1      # little endian-number in $t3
+or $v0,$t3,$t1      # little endian-number in $t3
 
 rol $t1,$v1,8         
 li $t2,0x00FF00FF     # $t2 contains mask 0x00FF00FF
@@ -221,8 +221,21 @@ ptrnCheck:
 		
 		
 		
-		move	$t0, $s1
-		sll	$t0, $t0, 19
+
+		clz	$t9, $t4
+		beq	$t9, 32, below32
+		clz	$t1, $t3
+		subi	$t1, $t1, 32
+		mul	$t1, $t1, -1
+		addu	$t9, $t9, $t1
+			
+			
+below32:	move	$t0, $s1
+		sll	$t0, $t0, 3
+		addu	$t0, $t9, $t0
+		sll	$t0, $t0, 16
+		
+		
 		move	$t1, $s2
 		or	$t0, $t0, $t1
 		sw	$t0, ($s6)	#save result
@@ -230,6 +243,7 @@ ptrnCheck:
 		lb	$t0, ($s7)
 		addiu	$t0, $t0, 1
 		sw	$t0, ($s7) 	#increment count
+		li	$t2, -1
 #NOCALL
 patternNotFound:			#advance
 		
@@ -274,7 +288,9 @@ noReset:	addu	$t9,$s5, $s3		#load new line
 		subiu	$t9, $t9, 1
 		srlv	$t8, $t8, $t9		#shift pattern upper word to proper position
 
-skipSR:		sllv	$t7, $t7, $t0		#shift pattern lower word
+skipSR:		bnez	$t4, noZeroLower
+		li	$t7, 0
+noZeroLower:	sllv	$t7, $t7, $t0		#shift pattern lower word
 		
 		
 		
